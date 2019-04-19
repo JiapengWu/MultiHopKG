@@ -100,6 +100,8 @@ class LFramework(nn.Module):
                 fns = None
             for example_id in tqdm(range(0, len(train_data), self.batch_size)):
 
+                # if (example_id/self.batch_size)% self.args.release_every == 0: torch.cuda.empty_cache()
+                torch.cuda.empty_cache()
                 self.optim.zero_grad()
 
                 mini_batch = train_data[example_id:example_id + self.batch_size]

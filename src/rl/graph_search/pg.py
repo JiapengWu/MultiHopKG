@@ -40,7 +40,7 @@ class PolicyGradient(LFramework):
 
     def reward_fun(self, e1, r, e2, pred_e2):
         return (pred_e2 == e2).float()
-
+    # loss is the core function differentiating policy gradient, RewardShaping PG and embedding based methods
     def loss(self, mini_batch):
         
         def stablize_reward(r):

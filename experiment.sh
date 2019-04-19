@@ -20,8 +20,8 @@ use_action_space_bucketing_flag=''
 if [[ $use_action_space_bucketing = *"True"* ]]; then
     use_action_space_bucketing_flag='--use_action_space_bucketing'
 fi
-
-cmd="python3 -m src.experiments \
+export CUDA_VISIBLE_DEVICES=$gpu
+cmd="python -m src.experiments \
     --data_dir $data_dir \
     $exp \
     --model $model \
@@ -55,6 +55,7 @@ cmd="python3 -m src.experiments \
     $use_action_space_bucketing_flag \
     --gpu $gpu \
     $ARGS"
+    #--process_data\
 
 echo "Executing $cmd"
 

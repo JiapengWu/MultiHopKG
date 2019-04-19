@@ -16,7 +16,7 @@ group_examples_by_query_flag=''
 if [[ $group_examples_by_query = *"True"* ]]; then
     group_examples_by_query_flag="--group_examples_by_query"
 fi
-
+export CUDA_VISIBLE_DEVICES=$gpu
 cmd="python3 -m src.experiments \
     --data_dir $data_dir \
     $exp \

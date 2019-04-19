@@ -72,6 +72,7 @@ class KnowledgeGraph(nn.Module):
         self.define_modules()
         self.initialize_modules()
 
+    # load entities, relations and types
     def load_graph_data(self, data_dir):
         # Load indices
         self.entity2id, self.id2entity = load_index(os.path.join(data_dir, 'entity2id.txt'))
@@ -117,7 +118,8 @@ class KnowledgeGraph(nn.Module):
 
         # load page rank scores
         page_rank_scores = load_page_rank_scores(os.path.join(data_dir, 'raw.pgrk'))
-        
+
+        # get all (r, e2) tuples
         def get_action_space(e1):
             action_space = []
             if e1 in self.adj_list:
@@ -133,12 +135,14 @@ class KnowledgeGraph(nn.Module):
             action_space.insert(0, (NO_OP_RELATION_ID, e1))
             return action_space
 
+        # get all relations starting from e1
         def get_unique_r_space(e1):
             if e1 in self.adj_list:
                 return list(self.adj_list[e1].keys())
             else:
                 return []
 
+        # initialize to zero, create masks
         def vectorize_action_space(action_space_list, action_space_size):
             bucket_size = len(action_space_list)
             r_space = torch.zeros(bucket_size, action_space_size) + self.dummy_r
@@ -151,6 +155,7 @@ class KnowledgeGraph(nn.Module):
                     action_mask[i, j] = 1
             return (int_var_cuda(r_space), int_var_cuda(e_space)), var_cuda(action_mask)
 
+        #
         def vectorize_unique_r_space(unique_r_space_list, unique_r_space_size, volatile):
             bucket_size = len(unique_r_space_list)
             unique_r_space = torch.zeros(bucket_size, unique_r_space_size) + self.dummy_r
@@ -201,6 +206,7 @@ class KnowledgeGraph(nn.Module):
                         max_num_unique_rs = len(unique_r_space)
                 self.unique_r_space = vectorize_unique_r_space(unique_r_space_list, max_num_unique_rs)
 
+    # construct subject: {e1: {r1: [e2...]...}...} and object: {e2: {r1: [e1...]...}...} from triples
     def load_all_answers(self, data_dir, add_reversed_edges=False):
         def add_subject(e1, e2, r, d):
             if not e2 in d:
@@ -235,12 +241,15 @@ class KnowledgeGraph(nn.Module):
                 for line in f:
                     e1, e2, r = line.strip().split()
                     e1, e2, r = self.triple2ids((e1, e2, r))
+                    # add triples in 'raw.kb', 'train.triples' into train_subjects, train_objects
                     if file_name in ['raw.kb', 'train.triples']:
                         add_subject(e1, e2, r, train_subjects)
                         add_object(e1, e2, r, train_objects)
                         if add_reversed_edges:
                             add_subject(e2, e1, self.get_inv_relation_id(r), train_subjects)
                             add_object(e2, e1, self.get_inv_relation_id(r), train_objects)
+
+                    # add triples in 'raw.kb', 'train.triples', 'dev.triples' into dev_subjects, dev_objects
                     if file_name in ['raw.kb', 'train.triples', 'dev.triples']:
                         add_subject(e1, e2, r, dev_subjects)
                         add_object(e1, e2, r, dev_objects)
@@ -249,9 +258,12 @@ class KnowledgeGraph(nn.Module):
                             add_object(e2, e1, self.get_inv_relation_id(r), dev_objects)
                     add_subject(e1, e2, r, all_subjects)
                     add_object(e1, e2, r, all_objects)
+
+                    # add triples in all files into all_subjects, all_objects
                     if add_reversed_edges:
                         add_subject(e2, e1, self.get_inv_relation_id(r), all_subjects)
                         add_object(e2, e1, self.get_inv_relation_id(r), all_objects)
+
         self.train_subjects = train_subjects
         self.train_objects = train_objects
         self.dev_subjects = dev_subjects
@@ -267,7 +279,8 @@ class KnowledgeGraph(nn.Module):
                     v = torch.LongTensor(list(d_l[x][y])).unsqueeze(1)
                     d_v[x][y] = int_var_cuda(v)
             return d_v
-        
+        # subject: {e1: {r1: [e2...]...}...}
+        # object: {e2: {r1: [e1...]...}...}
         self.train_subject_vectors = answers_to_var(train_subjects)
         self.train_object_vectors = answers_to_var(train_objects)
         self.dev_subject_vectors = answers_to_var(dev_subjects)

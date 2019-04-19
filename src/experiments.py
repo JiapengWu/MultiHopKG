@@ -470,6 +470,7 @@ def export_to_embedding_projector(lf):
     lf.export_to_embedding_projector()
 
 def export_reward_shaping_parameters(lf):
+    print('Top 10 Error Cases')
     lf.load_checkpoint(get_checkpoint_path(args))
     lf.export_reward_shaping_parameters()
 

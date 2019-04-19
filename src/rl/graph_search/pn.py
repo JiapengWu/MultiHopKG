@@ -58,7 +58,7 @@ class GraphSearchPolicy(nn.Module):
             e_t: target node
             last_step: If set, the agent is carrying out the last step.
             last_r: label of edge traversed in the previous step
-            seen_nodes: notes seen on the paths
+            seen_nodes: nodes seen on the paths
         :param kg: Knowledge graph environment.
         :param use_action_space_bucketing: If set, group the action space of different nodes 
             into buckets by their sizes.

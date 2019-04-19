@@ -20,7 +20,7 @@ use_action_space_bucketing_flag=''
 if [[ $use_action_space_bucketing = *"True"* ]]; then
     use_action_space_bucketing_flag='--use_action_space_bucketing'
 fi
-
+export CUDA_VISIBLE_DEVICES=$gpu
 cmd="python3 -m src.experiments \
     --data_dir $data_dir \
     $exp \
