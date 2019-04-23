@@ -188,6 +188,7 @@ def construct_model(args):
         pn = GraphSearchPolicy(args)
         lf = PolicyGradient(args, kg, pn)
     elif args.model.startswith('point.rs'):
+        # a graph search policy that produces rollouts and transition functionalities
         pn = GraphSearchPolicy(args)
         fn_model = args.model.split('.')[2]
         fn_args = copy.deepcopy(args)
@@ -195,6 +196,7 @@ def construct_model(args):
         fn_args.relation_only = False
         if fn_model == 'complex':
             fn = ComplEx(fn_args)
+            # fn_kg is a knowledge graph that only produces reward from pretrained embeddings
             fn_kg = KnowledgeGraph(fn_args)
         elif fn_model == 'distmult':
             fn = DistMult(fn_args)

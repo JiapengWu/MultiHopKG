@@ -38,40 +38,54 @@ class PolicyGradient(LFramework):
         self.path_types = dict()
         self.num_path_types = 0
 
-    def reward_fun(self, e1, r, e2, pred_e2):
-        return (pred_e2 == e2).float()
-    # loss is the core function differentiating policy gradient, RewardShaping PG and embedding based methods
-    def loss(self, mini_batch):
-        
-        def stablize_reward(r):
-            r_2D = r.view(-1, self.num_rollouts)
-            if self.baseline == 'avg_reward':
-                stabled_r_2D = r_2D - r_2D.mean(dim=1, keepdim=True)
-            elif self.baseline == 'avg_reward_normalized':
-                stabled_r_2D = (r_2D - r_2D.mean(dim=1, keepdim=True)) / (r_2D.std(dim=1, keepdim=True) + ops.EPSILON)
-            else:
-                raise ValueError('Unrecognized baseline function: {}'.format(self.baseline))
-            stabled_r = stabled_r_2D.view(-1)
-            return stabled_r
-    
-        e1, e2, r = self.format_batch(mini_batch, num_tiles=self.num_rollouts)
-        output = self.rollout(e1, r, e2, num_steps=self.num_rollout_steps)
-
-        # Compute policy gradient loss
-        pred_e2 = output['pred_e2']
-        log_action_probs = output['log_action_probs']
-        action_entropy = output['action_entropy']
-
-        # Compute discounted reward
-        final_reward = self.reward_fun(e1, r, e2, pred_e2)
+    def reward_fun(self, e1, r, e2, pred_e2, path_trace=None):
+        final_reward = (pred_e2 == e2).float()
         if self.baseline != 'n/a':
-            final_reward = stablize_reward(final_reward)
+            final_reward = self.stablize_reward(final_reward)
         cum_discounted_rewards = [0] * self.num_rollout_steps
         cum_discounted_rewards[-1] = final_reward
         R = 0
         for i in range(self.num_rollout_steps - 1, -1, -1):
             R = self.gamma * R + cum_discounted_rewards[i]
             cum_discounted_rewards[i] = R
+        return cum_discounted_rewards, final_reward
+    # loss is the core function differentiating policy gradient, RewardShaping PG and embedding based methods
+
+    def stablize_reward(self, r):
+        r_2D = r.view(-1, self.num_rollouts)
+        if self.baseline == 'avg_reward':
+            stabled_r_2D = r_2D - r_2D.mean(dim=1, keepdim=True)
+        elif self.baseline == 'avg_reward_normalized':
+            stabled_r_2D = (r_2D - r_2D.mean(dim=1, keepdim=True)) / (r_2D.std(dim=1, keepdim=True) + ops.EPSILON)
+        else:
+            raise ValueError('Unrecognized baseline function: {}'.format(self.baseline))
+        stabled_r = stabled_r_2D.view(-1)
+        return stabled_r
+
+    def loss(self, mini_batch):
+        e1, e2, r = self.format_batch(mini_batch, num_tiles=self.num_rollouts)
+        output = self.rollout(e1, r, e2, num_steps=self.num_rollout_steps)
+
+        # Compute policy gradient loss
+        pred_e2 = output['pred_e2']
+        path_trace = output['path_trace']
+        log_action_probs = output['log_action_probs']
+        action_entropy = output['action_entropy']
+
+        # Compute discounted reward
+
+        cum_discounted_rewards, final_reward = self.reward_fun(e1, r, e2, pred_e2, path_trace)
+
+
+        # final_reward = self.reward_fun(e1, r, e2, pred_e2, path_trace)
+        # if self.baseline != 'n/a':
+        #     final_reward = self.stablize_reward(final_reward)
+        # cum_discounted_rewards = [0] * self.num_rollout_steps
+        # cum_discounted_rewards[-1] = final_reward
+        # R = 0
+        # for i in range(self.num_rollout_steps - 1, -1, -1):
+        #     R = self.gamma * R + cum_discounted_rewards[i]
+        #     cum_discounted_rewards[i] = R
 
         # Compute policy gradient
         pg_loss, pt_loss = 0, 0
@@ -104,9 +118,9 @@ class PolicyGradient(LFramework):
         """
         Perform multi-step rollout from the source entity conditioned on the query relation.
         :param pn: Policy network.
-        :param e_s: (Variable:batch) source entity indices.
-        :param q: (Variable:batch) query relation indices.
-        :param e_t: (Variable:batch) target entity indices.
+        :param e_s: (Variable:batch) source entity indices. 2560
+        :param q: (Variable:batch) query relation indices. 2560
+        :param e_t: (Variable:batch) target entity indices. 2560
         :param kg: Knowledge graph environment.
         :param num_steps: Number of rollout steps.
         :param visualize_action_probs: If set, save action probabilities for visualization.
@@ -130,10 +144,11 @@ class PolicyGradient(LFramework):
         for t in range(num_steps):
             last_r, e = path_trace[-1]
             obs = [e_s, q, e_t, t==(num_steps-1), last_r, seen_nodes]
+            # import pdb;pdb.set_trace()
             db_outcomes, inv_offset, policy_entropy = pn.transit(
-                e, obs, kg, use_action_space_bucketing=self.use_action_space_bucketing)
+                e, obs, kg, use_action_space_bucketing=self.use_action_space_bucketing) # db_outcomes contains indices
             sample_outcome = self.sample_action(db_outcomes, inv_offset)
-            action = sample_outcome['action_sample']
+            action = sample_outcome['action_sample'] # sampled next action (next_r, next_e) (indices)
             pn.update_path(action, kg)
             action_prob = sample_outcome['action_prob']
             log_action_probs.append(ops.safe_log(action_prob))
@@ -194,6 +209,7 @@ class PolicyGradient(LFramework):
             action_prob = ops.batch_lookup(action_dist, idx)
             sample_outcome['action_sample'] = (next_r, next_e)
             sample_outcome['action_prob'] = action_prob
+            sample_outcome['action_index'] = idx
             return sample_outcome
 
         if inv_offset is not None:

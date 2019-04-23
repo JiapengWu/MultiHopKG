@@ -13,7 +13,7 @@ import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import os
 
 class TripleE(nn.Module):
     def __init__(self, args, num_entities):
@@ -241,4 +241,24 @@ def get_distmult_kg_state_dict(state_dict):
         kg_state_dict[param_name.split('.', 1)[1]] = state_dict['state_dict'][param_name]
     return kg_state_dict
 
+def get_relation_path_embedding(ptranse_path, data_dir, fn_kg=None):
+    input_dir = os.path.join(ptranse_path, data_dir.split("/")[1])
+    try:
+        return torch.load(os.path.join(input_dir, "relation2vec.vec")).cuda(), torch.load(os.path.join(input_dir, "entity2vec.vec")).cuda()
+    except:
+        import numpy as np
+        def load_vectors(fname, first_dim):
+            embedding = nn.Embedding(first_dim, fn_kg.relation_path_dim)
+            # embedding = nn.Embedding(1000, 100)
+            with open(os.path.join(input_dir, fname + ".txt"), "r") as f:
+                lines = f.readlines()
+                for i, l in enumerate(lines):
+                    line = l.strip().split('\t')
+                    embedding.weight[i] = torch.from_numpy(np.array(line).astype(np.float))
 
+            torch.save(embedding, os.path.join(input_dir, fname + ".vec"))
+            return embedding.cuda()
+        return load_vectors("relation2vec", fn_kg.num_relations), load_vectors("entity2vec", fn_kg.num_entities)
+
+if __name__ == '__main__':
+    get_relation_path_embedding('../../PTransE/embedding/umls/')

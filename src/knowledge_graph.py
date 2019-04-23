@@ -60,12 +60,15 @@ class KnowledgeGraph(nn.Module):
         # Define NN Modules
         self.entity_dim = args.entity_dim
         self.relation_dim = args.relation_dim
+        self.relation_path_dim = args.relation_path_dim
         self.emb_dropout_rate = args.emb_dropout_rate
         self.num_graph_convolution_layers = args.num_graph_convolution_layers
         self.entity_embeddings = None
         self.relation_embeddings = None
         self.entity_img_embeddings = None
         self.relation_img_embeddings = None
+        self.ptranse_entity_embedding = None
+        self.ptranse_relation_embedding = None
         self.EDropout = None
         self.RDropout = None
         
@@ -142,7 +145,7 @@ class KnowledgeGraph(nn.Module):
             else:
                 return []
 
-        # initialize to zero, create masks
+        # initialize r_space, e_space and action_mask to zero, create masks
         def vectorize_action_space(action_space_list, action_space_size):
             bucket_size = len(action_space_list)
             r_space = torch.zeros(bucket_size, action_space_size) + self.dummy_r
@@ -155,7 +158,7 @@ class KnowledgeGraph(nn.Module):
                     action_mask[i, j] = 1
             return (int_var_cuda(r_space), int_var_cuda(e_space)), var_cuda(action_mask)
 
-        #
+
         def vectorize_unique_r_space(unique_r_space_list, unique_r_space_size, volatile):
             bucket_size = len(unique_r_space_list)
             unique_r_space = torch.zeros(bucket_size, unique_r_space_size) + self.dummy_r
@@ -346,6 +349,9 @@ class KnowledgeGraph(nn.Module):
     def get_relation_img_embeddings(self, r):
         return self.RDropout(self.relation_img_embeddings(r))
 
+    def get_all_relation_path_embedding(self):
+        return self.ptranse_entity_embedding, self.ptranse_relation_embedding
+
     def virtual_step(self, e_set, r):
         """
         Given a set of entities (e_set), find the set of entities (e_set_out) which has at least one incoming edge
@@ -380,6 +386,8 @@ class KnowledgeGraph(nn.Module):
         self.relation_embeddings = nn.Embedding(self.num_relations, self.relation_dim)
         if self.args.model == 'complex':
             self.relation_img_embeddings = nn.Embedding(self.num_relations, self.relation_dim)
+        # self.ptranse_entity_embedding = nn.Embedding(self.num_entities, self.relation_path_dim)
+        # self.ptranse_relation_embedding = nn.Embedding(self.num_relations, self.relation_path_dim)
         self.RDropout = nn.Dropout(self.emb_dropout_rate)
 
     def initialize_modules(self):

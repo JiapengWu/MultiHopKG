@@ -117,9 +117,15 @@ class GraphSearchPolicy(nn.Module):
             action_space = ((r_space, e_space), action_mask)
             return action_space
 
-        if use_action_space_bucketing:
+        if not use_action_space_bucketing:
+            action_space = self.get_action_space(e, obs, kg) # indicies
+            action_dist, entropy = policy_nn_fun(X2, action_space) # indicies
+            db_outcomes = [(action_space, action_dist)]# indicies
+            inv_offset = None
+
+        else:
             """
-            
+
             """
             db_outcomes = []
             entropy_list = []
@@ -141,11 +147,6 @@ class GraphSearchPolicy(nn.Module):
                 action_dist = ops.pad_and_cat(db_action_dist, padding_value=0)[inv_offset]
                 db_outcomes = [(action_space, action_dist)]
                 inv_offset = None
-        else:
-            action_space = self.get_action_space(e, obs, kg)
-            action_dist, entropy = policy_nn_fun(X2, action_space)
-            db_outcomes = [(action_space, action_dist)]
-            inv_offset = None
 
         return db_outcomes, inv_offset, entropy
 
@@ -266,6 +267,7 @@ class GraphSearchPolicy(nn.Module):
         return db_action_spaces, db_references
 
     def get_action_space(self, e, obs, kg):
+        # r_space, e_space, action_mask are indices
         r_space, e_space = kg.action_space[0][0][e], kg.action_space[0][1][e]
         action_mask = kg.action_space[1][e]
         action_space = ((r_space, e_space), action_mask)

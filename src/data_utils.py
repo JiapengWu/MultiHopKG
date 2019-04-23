@@ -113,11 +113,13 @@ def load_triples_with_label(data_path, r, entity_index_path, relation_index_path
             labels.append(label.strip())
     return triples, labels
 
+
 def load_triples(data_path, entity_index_path, relation_index_path, group_examples_by_query=False,
                  add_reverse_relations=False, seen_entities=None, verbose=False):
     """
     Convert triples stored on disc into indices.
     """
+    # frequencies are ignored since load_index uses enumerate(f.readlines())
     entity2id, _ = load_index(entity_index_path)
     relation2id, _ = load_index(relation_index_path)
 
@@ -138,6 +140,7 @@ def load_triples(data_path, entity_index_path, relation_index_path, group_exampl
                 continue
             # if r in ['concept:agentbelongstoorganization', 'concept:teamplaysinleague']:
             #     continue
+            # default false
             if group_examples_by_query:
                 e1_id, e2_id, r_id = triple2ids(e1, e2, r)
                 if e1_id not in triple_dict:
@@ -157,6 +160,8 @@ def load_triples(data_path, entity_index_path, relation_index_path, group_exampl
                 triples.append(triple2ids(e1, e2, r))
                 if add_reverse_relations:
                     triples.append(triple2ids(e2, e1, r + '_inv'))
+    # import pdb;pdb.set_trace()
+    # skip
     if group_examples_by_query:
         for e1_id in triple_dict:
             for r_id in triple_dict[e1_id]:
@@ -180,6 +185,7 @@ def load_index(input_path):
             index[v] = i
             rev_index[i] = v
     return index, rev_index
+
 
 def prepare_kb_envrioment(raw_kb_path, train_path, dev_path, test_path, test_mode, add_reverse_relations=True):
     """
@@ -251,14 +257,18 @@ def prepare_kb_envrioment(raw_kb_path, train_path, dev_path, test_path, test_mod
     with open(os.path.join(data_dir, 'entity2id.txt'), 'w') as o_f:
         o_f.write('{}\t{}\n'.format(DUMMY_ENTITY, DUMMY_ENTITY_ID))
         o_f.write('{}\t{}\n'.format(NO_OP_ENTITY, NO_OP_ENTITY_ID))
-        for e, freq in hist_to_vocab(entity_hist):
-            o_f.write('{}\t{}\n'.format(e, freq))
+        eid = NO_OP_ENTITY_ID + 1
+        for e, _ in hist_to_vocab(entity_hist):
+            o_f.write('{}\t{}\n'.format(e, eid))
+            eid += 1
     with open(os.path.join(data_dir, 'relation2id.txt'), 'w') as o_f:
         o_f.write('{}\t{}\n'.format(DUMMY_RELATION, DUMMY_RELATION_ID))
         o_f.write('{}\t{}\n'.format(START_RELATION, START_RELATION_ID))
         o_f.write('{}\t{}\n'.format(NO_OP_RELATION, NO_OP_RELATION_ID))
-        for r, freq in hist_to_vocab(relation_hist):
-            o_f.write('{}\t{}\n'.format(r, freq))
+        rid = NO_OP_RELATION_ID + 1
+        for r, _ in hist_to_vocab(relation_hist):
+            o_f.write('{}\t{}\n'.format(r, rid))
+            rid += 1
     with open(os.path.join(data_dir, 'type2id.txt'), 'w') as o_f:
         for t, freq in hist_to_vocab(type_hist):
             o_f.write('{}\t{}\n'.format(t, freq))
@@ -310,6 +320,27 @@ def prepare_kb_envrioment(raw_kb_path, train_path, dev_path, test_path, test_mod
         pickle.dump(dict(adj_list), o_f)
     with open(os.path.join(data_dir, 'entity2typeid.pkl'), 'wb') as o_f:
         pickle.dump(entity2typeid, o_f)
+    prepare_train_val_test_txt(data_dir, train_triples, dev_triples, test_triples)
+
+
+def prepare_train_val_test_txt(data_dir, train_triples, dev_triples, test_triples):
+    # import pdb;pdb.set_trace()
+    from shutil import copyfile
+    pTransE_dir = os.path.join("PTransE", data_dir)
+    if not os.path.exists(pTransE_dir):
+        os.makedirs(pTransE_dir)
+    copyfile(os.path.join(data_dir, 'entity2id.txt'), os.path.join(pTransE_dir, 'entity2id.txt'))
+    copyfile(os.path.join(data_dir, 'relation2id.txt'), os.path.join(pTransE_dir, 'relation2id.txt'))
+    train_path = os.path.join(pTransE_dir, "train.txt")
+    dev_path = os.path.join(pTransE_dir, "valid.txt")
+    test_path = os.path.join(pTransE_dir, "test.txt")
+    for in_triples, out_path in zip([train_triples, dev_triples, test_triples], [train_path, dev_path, test_path]):
+        with open(os.path.join(out_path), 'w') as o_f:
+            for line in in_triples:
+                e1, e2, r = line.strip().split()
+                o_f.write('{}\t{}\t{}\n'.format(e1, e2, r))
+                # o_f.write('{}\t{}\t{}\n'.format(e2, e1, r + '_inv'))
+
 
 def get_seen_queries(data_dir, entity_index_path, relation_index_path):
     entity2id, _ = load_index(entity_index_path)

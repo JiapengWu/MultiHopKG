@@ -10,6 +10,13 @@
 import argparse
 import os
 
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 parser = argparse.ArgumentParser(description='Multi-Hop Knowledge Graph Reasoning with Reward Shaping')
 
@@ -77,17 +84,17 @@ parser.add_argument('--num_graph_convolution_layers', type=int, default=0,
                     help='number of graph convolution layers to use (default: 0, no GC is used)')
 parser.add_argument('--graph_convolution_rank', type=int, default=10,
                     help='number of ranks ')
-parser.add_argument('--add_reverse_relations', type=bool, default=True,
+parser.add_argument('--add_reverse_relations', type=str2bool, default=True,
                     help='add reverse relations to KB (default: True)')
 parser.add_argument('--add_reversed_training_edges', action='store_true',
                     help='add reversed edges to extend training set (default: False)')
-parser.add_argument('--train_entire_graph', type=bool, default=False,
+parser.add_argument('--train_entire_graph', type=str2bool, default=False,
                     help='add all edges in the graph to extend training set (default: False)')
 parser.add_argument('--emb_dropout_rate', type=float, default=0.3,
                     help='Knowledge graph embedding dropout rate (default: 0.3)')
-parser.add_argument('--zero_entity_initialization', type=bool, default=False,
+parser.add_argument('--zero_entity_initialization', type=str2bool, default=False,
                     help='Initialize all entities to zero (default: False)')
-parser.add_argument('--uniform_entity_initialization', type=bool, default=False,
+parser.add_argument('--uniform_entity_initialization', type=str2bool, default=False,
                     help='Initialize all entities with the same random embedding (default: False)')
 
 # Optimization
@@ -117,9 +124,9 @@ parser.add_argument('--adam_beta2', type=float, default=0.999,
                     help='Adam: decay rates for the second raw movement estimate (default: 0.999)')
 parser.add_argument('--grad_norm', type=float, default=10000,
                     help='norm threshold for gradient clipping (default 10000)')
-parser.add_argument('--xavier_initialization', type=bool, default=True,
+parser.add_argument('--xavier_initialization', type=str2bool, default=True,
                     help='Initialize all model parameters using xavier initialization (default: True)')
-parser.add_argument('--random_parameters', type=bool, default=False,
+parser.add_argument('--random_parameters', type=str2bool, default=False,
                     help='Inference with random parameters (default: False)')
 
 # Fact Network
@@ -168,7 +175,10 @@ parser.add_argument('--reward_shaping_threshold', type=float, default=0,
 		            help='Threshold cut off of reward shaping scores (default: 0)')
 parser.add_argument('--mu', type=float, default=1.0,
                     help='Weight over the estimated reward (default: 1.0)')
-
+parser.add_argument('--ptranse_path', type=str, default='PTransE/embedding/',
+                    help='path from which PtransE is loaded')
+parser.add_argument('--relation_path_dim', type=int, default=100,
+                    help='path from which PtransE is loaded')
 # Graph Completion
 parser.add_argument('--theta', type=float, default=0.2,
                     help='Threshold for sifting high-confidence facts (default: 0.2)')
@@ -199,7 +209,7 @@ parser.add_argument('--seed', type=int, default=543, metavar='S',
 # Search Decoding
 parser.add_argument('--beam_size', type=int, default=100,
                     help='size of beam used in beam search inference (default: 100)')
-parser.add_argument('--mask_test_false_negatives', type=bool, default=False,
+parser.add_argument('--mask_test_false_negatives', type=str2bool, default=False,
                     help='mask false negative examples in the dev/test set during decoding (default: False. This flag '
                          'was implemented for sanity checking and was not used in any experiment.)')
 parser.add_argument('--visualize_paths', action='store_true',
