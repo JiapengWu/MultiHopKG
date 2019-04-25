@@ -33,6 +33,7 @@ class EmbeddingBasedMethod(LFramework):
         kg, mdl = self.kg, self.mdl
         pred_scores = []
         for example_id in tqdm(range(0, len(examples), self.batch_size)):
+            torch.cuda.empty_cache()
             mini_batch = examples[example_id:example_id + self.batch_size]
             mini_batch_size = len(mini_batch)
             if len(mini_batch) < self.batch_size:

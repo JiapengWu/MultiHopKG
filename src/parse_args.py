@@ -237,4 +237,9 @@ parser.add_argument('--tune', type=str, default='',
 parser.add_argument('--grid_search', action='store_true',
                     help='Conduct grid search of hyperparameters')
 
+
+parser.add_argument('--ptranse_only', action='store_true',
+                    help='PTranE only')
+
+
 args = parser.parse_args()

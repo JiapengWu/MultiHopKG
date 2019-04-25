@@ -54,7 +54,8 @@ class RewardShapingPolicyGradient(PolicyGradient):
             raise NotImplementedError
         self.fn_kg.load_state_dict(fn_kg_state_dict)
         print("Loading pretrained pTransE embedding...")
-        self.fn_kg.ptranse_entity_embedding, self.fn_kg.ptranse_relation_embedding = get_relation_path_embedding(args.ptranse_path, args.data_dir, fn_kg)
+        self.fn_kg.ptranse_entity_embedding, self.fn_kg.ptranse_relation_embedding = \
+            get_relation_path_embedding(args.ptranse_path, args.data_dir, fn_kg)
         if fn_model == 'hypere':
             complex_state_dict = torch.load(args.complex_state_dict_path)
             complex_kg_state_dict = get_complex_kg_state_dict(complex_state_dict)
@@ -68,24 +69,20 @@ class RewardShapingPolicyGradient(PolicyGradient):
             self.fn_secondary_kg.eval()
             ops.detach_module(self.fn_secondary_kg)
 
-    def reward_fun(self, e1, r, e2, pred_e2, path_trace=None):
+    def reward_fun(self, e1, r, e2, pred_e2, path_trace=None, only_dist_reward=False):
         if self.model.endswith('.rso'):
             oracle_reward = forward_fact_oracle(e1, r, pred_e2, self.kg)
             return oracle_reward
         else:
-            if self.fn_secondary_kg:
-                real_reward = self.fn.forward_fact(e1, r, pred_e2, self.fn_kg, [self.fn_secondary_kg]).squeeze(1)
-            else:
-                # {ConvE, ComplexE...}.forward_fact() from pretrained embedding
-                real_reward = self.fn.forward_fact(e1, r, pred_e2, self.fn_kg).squeeze(1)
+            if not only_dist_reward:
+                if self.fn_secondary_kg:
+                    real_reward = self.fn.forward_fact(e1, r, pred_e2, self.fn_kg, [self.fn_secondary_kg]).squeeze(1)
+                else:
+                    # {ConvE, ComplexE...}.forward_fact() from pretrained embedding
+                    real_reward = self.fn.forward_fact(e1, r, pred_e2, self.fn_kg).squeeze(1)
 
-            real_reward_mask = (real_reward > self.reward_shaping_threshold).float()
-            real_reward *= real_reward_mask
-            if self.model.endswith('rsc'):
-                return real_reward
-            else:
-                binary_reward = (pred_e2 == e2).float()
-                final_reward = binary_reward + self.mu * (1 - binary_reward) * real_reward
+                real_reward_mask = (real_reward > self.reward_shaping_threshold).float()
+                real_reward *= real_reward_mask
 
             ent_embed, rel_embed = self.fn_kg.get_all_relation_path_embedding()
 
@@ -93,16 +90,33 @@ class RewardShapingPolicyGradient(PolicyGradient):
             rel_path_embed = rel_embed(relation_path)
             # import pdb;pdb.set_trace()
 
+            # pwd = torch.nn.PairwiseDistance()
+            cos = torch.nn.CosineSimilarity(dim=1)
+
+            rel_path_embed_cumsum = torch.cumsum(rel_path_embed, dim=0)
+            #print(len(rel_path_embed), self.num_rollout_steps)
+            #import pdb;pdb.set_trace()
+            if self.model.endswith('rsc'):
+                return real_reward
+            else:
+                binary_reward = (pred_e2 == e2).float()
+
+            if only_dist_reward:
+                real_reward = cos(rel_path_embed_cumsum[self.num_rollout_steps], rel_embed(r))
+
+            final_reward = binary_reward + self.mu * (1 - binary_reward) * real_reward
+
+            # print('final reward', final_reward)
+
             if self.baseline != 'n/a':
                 final_reward = self.stablize_reward(final_reward)
 
             rewards = [0] * self.num_rollout_steps
             R = rewards[-1] = final_reward
 
-            # pwd = torch.nn.PairwiseDistance()
-            cos = torch.nn.CosineSimilarity(dim=1)
-            for i in range(self.num_rollout_steps - 2, -1, -1):
-                R = self.gamma * R + cos(torch.sum(rel_path_embed[:i+1], dim=0), rel_embed(r))
+
+            for i in range(self.num_rollout_steps - 1, -1, -1):
+                R = self.gamma * R + cos(rel_path_embed_cumsum[i], rel_embed(r))
                 # R = self.gamma * R + pwd(torch.sum(relation_path[:i]), rel_embed(r))
                 rewards[i] = R
             return rewards, final_reward

@@ -101,7 +101,7 @@ class LFramework(nn.Module):
             for example_id in tqdm(range(0, len(train_data), self.batch_size)):
 
                 # if (example_id/self.batch_size)% self.args.release_every == 0: torch.cuda.empty_cache()
-                torch.cuda.empty_cache()
+                # torch.cuda.empty_cache()
                 self.optim.zero_grad()
 
                 mini_batch = train_data[example_id:example_id + self.batch_size]
@@ -143,6 +143,7 @@ class LFramework(nn.Module):
 
             # Check dev set performance
             if self.run_analysis or (epoch_id > 0 and epoch_id % self.num_peek_epochs == 0):
+            # if False:
                 self.eval()
                 self.batch_size = self.dev_batch_size
                 dev_scores = self.forward(dev_data, verbose=False)
@@ -195,6 +196,7 @@ class LFramework(nn.Module):
                             o_f.write('{}\n'.format(fn_ratio))
 
     def forward(self, examples, verbose=False):
+        # torch.cuda.empty_cache()
         pred_scores = []
         for example_id in tqdm(range(0, len(examples), self.batch_size)):
             mini_batch = examples[example_id:example_id + self.batch_size]

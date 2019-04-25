@@ -142,6 +142,8 @@ def initialize_model_directory(args, random_seed=None):
     else:
         raise NotImplementedError
 
+
+    hyperparam_sig = hyperparam_sig + ('-ptranse_only' if args.ptranse_only else '')
     model_sub_dir = '{}-{}{}{}{}-{}'.format(
         dataset,
         args.model,

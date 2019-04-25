@@ -38,7 +38,7 @@ class PolicyGradient(LFramework):
         self.path_types = dict()
         self.num_path_types = 0
 
-    def reward_fun(self, e1, r, e2, pred_e2, path_trace=None):
+    def reward_fun(self, e1, r, e2, pred_e2, path_trace=None, only_dist_reward=False):
         final_reward = (pred_e2 == e2).float()
         if self.baseline != 'n/a':
             final_reward = self.stablize_reward(final_reward)
@@ -74,7 +74,7 @@ class PolicyGradient(LFramework):
 
         # Compute discounted reward
 
-        cum_discounted_rewards, final_reward = self.reward_fun(e1, r, e2, pred_e2, path_trace)
+        cum_discounted_rewards, final_reward = self.reward_fun(e1, r, e2, pred_e2, path_trace, self.args.ptranse_only)
 
 
         # final_reward = self.reward_fun(e1, r, e2, pred_e2, path_trace)

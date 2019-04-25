@@ -38,9 +38,10 @@ cmd="python3 -m src.experiments \
     --beam_size $beam_size \
     $group_examples_by_query_flag \
     $add_reversed_training_edges_flag \
-    --gpu $gpu \
-    $ARGS"
+    $ARGS
+    "
 
+#    --gpu $gpu \
 echo "Executing $cmd"
 
 $cmd
